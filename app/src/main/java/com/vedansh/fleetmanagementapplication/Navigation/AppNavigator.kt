@@ -5,18 +5,30 @@ import ManagerApprovalHistoryScreen
 import ManagerRequest
 import RequestHistoryScreen
 import RequestStatusScreen
+import RequestedEquipmentDashboardScreen
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.vedansh.fleetmanagementapplication.ManagerDashboard.*
+import com.vedansh.fleetmanagementapplication.ManagerDashboard.AllocationDashboardScreen
 import com.vedansh.fleetmanagementapplication.ManagerDashboard.DataClass.equipmentList
+import com.vedansh.fleetmanagementapplication.ManagerDashboard.EquipmentDetailScreen
+import com.vedansh.fleetmanagementapplication.ManagerDashboard.EquipmentTypeListScreen
+import com.vedansh.fleetmanagementapplication.ManagerDashboard.Requisition
+import com.vedansh.fleetmanagementapplication.ManagerDashboard.RequisitionFormScreen
 import com.vedansh.fleetmanagementapplication.Presentation.Login.LoginScreen
 import com.vedansh.fleetmanagementapplication.Presentation.Splash.SplashScreen
+import com.vedansh.fleetmanagementapplication.StakeHolderDashboard.DataClass.RequestedEquipment
+import com.vedansh.fleetmanagementapplication.StakeHolderDashboard.DataClass.sampleRequests
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -32,6 +44,8 @@ sealed class Screen(val route: String) {
     object ManagerApprovalHistory : Screen("manager_approval_history")
     // ADD this line in your Screen sealed class
     object AllocationDashboard : Screen("allocation_dashboard")
+    object StakeholderDashboard : Screen("stakeholder_dashboard")
+
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -39,6 +53,10 @@ sealed class Screen(val route: String) {
 fun AppNavigator() {
     val navController = rememberNavController()
     var requestToEdit by remember { mutableStateOf<Requisition?>(null) }
+    // Add this for Stakeholder Dashboard
+    // SnapshotStateList for stakeholder requests
+    val stakeholderRequests = remember { mutableStateListOf<RequestedEquipment>().apply { addAll(sampleRequests) } }
+
 
     // FIXED: Single source of truth for approval history
     val approvalHistory = remember { mutableStateListOf<ManagerRequest>() }
@@ -184,5 +202,48 @@ fun AppNavigator() {
                 EquipmentDetailScreen(equipmentType = it) { navController.popBackStack() }
             }
         }
+        // Stakeholder Dashboard
+        composable(Screen.StakeholderDashboard.route) {
+            RequestedEquipmentDashboardScreen(
+                requests = stakeholderRequests,
+                onBack = { navController.popBackStack() },
+                onApprove = { request ->
+                    val index = stakeholderRequests.indexOf(request)
+                    if (index != -1) {
+                        stakeholderRequests[index] = stakeholderRequests[index].copy(status = "Approved")
+                    }
+                },
+                onReject = { request, reason ->
+                    val index = stakeholderRequests.indexOf(request)
+                    if (index != -1) {
+                        stakeholderRequests[index] = stakeholderRequests[index].copy(status = "Rejected")
+                    }
+                },
+                // Approve All
+                onApproveAll = {
+                    val pendingRequests = it.filter { req -> req.status == "Pending" }
+                    pendingRequests.forEach { req ->
+                        val index = stakeholderRequests.indexOf(req)
+                        if (index != -1) {
+                            stakeholderRequests[index] = req.copy(status = "Approved")
+                        }
+                    }
+                },
+
+// Reject All
+                onRejectAll = {
+                    val pendingRequests = it.filter { req -> req.status == "Pending" }
+                    pendingRequests.forEach { req ->
+                        val index = stakeholderRequests.indexOf(req)
+                        if (index != -1) {
+                            stakeholderRequests[index] = req.copy(status = "Rejected")
+                        }
+                    }
+                }
+
+            )
+        }
+
+
     }
 }
